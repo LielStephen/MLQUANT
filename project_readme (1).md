@@ -1,0 +1,61 @@
+# Quantitative Sentiment Price Prediction Agent
+
+## Project Overview
+
+This repository contains a Python-based machine learning pipeline that forecasts the price of a chosen asset (BTC-USD) across six distinct future horizons (n+0 to n+5). The model utilizes engagement-weighted sentiment from X (Twitter), historical price data, and contextual macro news ingestion.
+
+It was built as a submission for the CrowdWisdomTrading X Quantitative Data Scientist internship assessment.
+
+## Setup and Run Instructions
+
+To reproduce the pipeline and generated reports:
+
+1. **Environment Setup:**
+   Run the project via the provided Jupyter Notebook (`aiproject.ipynb`) in Google Colab.
+   Install the required dependencies:
+
+   ```bash
+   pip install apify-client tavily-python yfinance lightgbm nltk pandas numpy scikit-learn tabulate
+   ```
+
+2. **API Keys (Colab Secrets):**
+   You will need to configure your API keys in your environment variables or Colab Secrets:
+
+   * `APIFY_API_TOKEN`: Required for live X (Twitter) scraping.
+   * `TAVILY_API_KEY`: Required for live macro catalyst news ingestion.
+
+3. **Execution:**
+   Run the notebook cells sequentially. The final cell will automatically evaluate the model, generate the 1-page quantitative sentiment outlook (`SENTIMENT_OUTLOOK.md`), and plot the multi-horizon walk-forward error matrix (`visual_matrix_output.png`).
+
+## Approach & Architecture
+
+### 1. Data Ingestion & Fallback Handling
+
+* **Asset:** Bitcoin (`BTC-USD`) was chosen due to its 24/7 continuous liquidity, which aligns cleanly with round-the-clock social media activity.
+* **Price:** 180 days of hourly bars ingested via `yfinance`.
+* **Sentiment:** Live scraping of the most recent X posts using Apify (`apidojo/tweet-scraper`).
+* **Context:** Macro catalysts retrieved via `tavily-python`.
+* **Fallback Logic:** In the event of API rate limits or missing tokens, the pipeline generates synthetic, correctly-aligned social data to ensure continuous execution.
+
+### 2. Quantitative Feature Engineering
+
+* **Engagement-Weighted Sentiment:** Raw NLP sentiment (VADER) is weighted by a logarithmic function of likes, retweets, and followers to filter out bot noise and amplify institutional/influencer signals.
+* **Stationarity:** Target variables were strictly modeled as percentage returns ($\hat{r}_{n+h}$) rather than raw price levels to prevent spurious regression.
+* **Lookahead Hygiene:** All time-series data was combined using strict backward alignment (`pd.merge_asof`) to guarantee zero future data leakage.
+
+### 3. Model & Walk-Forward Validation
+
+* **Algorithm:** LightGBM Regressors.
+* **Validation:** Standard K-Fold CV was avoided due to data leakage risks. We implemented an Expanding Window Walk-Forward evaluation across horizons n+0 to n+5 (30-day initial train, 7-day walk-forward steps).
+
+## Limitations and Next Steps
+
+* **Asymmetric Noise:** Social media exhibits a positive confirmation bias during bull regimes but delayed responses during sudden liquidity sweeps.
+* **Horizon Decay:** Social sentiment acts as a short-latency momentum trigger. The walk-forward MAE chart confirms that predictive power decays rapidly past horizon n+2.
+* **Next Steps:** If scaled into production, the pipeline should ingest institutional flow data (e.g., options chain gamma exposure) to act as a mid-term anchor when social alpha decays.
+
+## Deliverables
+
+* `aiproject.ipynb`: The end-to-end pipeline code.
+* `SENTIMENT_OUTLOOK.md`: The 1-page current sentiment outlook.
+* `visual_matrix_output.png`: The requested visual matrix generator showing price, sentiment regimes, and error decay.
